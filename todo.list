@@ -1,0 +1,2 @@
+1. Backup multiple MAC addresses
+2. Add init.d script that restores the original MAC address on every start
