@@ -3,23 +3,24 @@ using System.IO;
 using Android.App;
 using Android.Content;
 using Android.Content.PM;
+using Android.OS;
 using Android.Views;
 using Android.Widget;
-using Android.OS;
-using static nMAC.Helpers;
-using static nMAC.MACFunctions;
+using EU.Chainfire.Libsuperuser;
+using static nMAC.Utils.General;
+using static nMAC.Utils.MAC;
 
 namespace nMAC
 {
-    [Activity(Label = "Nil MAC Changer", MainLauncher = true, Icon = "@mipmap/ic_launcher", WindowSoftInputMode = SoftInput.AdjustPan, ScreenOrientation = ScreenOrientation.Portrait)]
+    [Activity(Label = "Nil MAC Changer", MainLauncher = true, Icon = "@mipmap/ic_launcher", WindowSoftInputMode = SoftInput.AdjustPan,
+        ScreenOrientation = ScreenOrientation.Portrait)]
     public class MainActivity : Activity
     {
         private readonly Random _random = new Random();
 
-        protected override async void OnCreate(Bundle bundle)
+        protected override async void OnCreate(Bundle savedInstanceState)
         {
-            base.OnCreate(bundle);
-
+            base.OnCreate(savedInstanceState);
             this.SetContentView(Resource.Layout.Main);
             ToggleViews(false);
 
@@ -31,8 +32,8 @@ namespace nMAC
             btnRestore.Click += BtnRestore_Click;
 
             InitializeLogger(this);
-            Log("Checking SU availability...");
 
+            Log("Checking SU availability...");
             if (!await CheckSUStrict(this))
             {
                 Log("Error confirming SU access!");
@@ -40,7 +41,6 @@ namespace nMAC
             }
 
             await AssignPaths(this);
-
             if (MACFile == null) // device not supported
             {
                 Log("Device not supported!");
@@ -48,7 +48,6 @@ namespace nMAC
             }
 
             Log("Done");
-
             CheckBackup();
         }
 
@@ -59,13 +58,12 @@ namespace nMAC
             Log("Restoring MAC Address...");
             ShowLoading(this, "Please wait...");
 
-            bool disableAirplaneMode = !IsAirplaneModeEnabled(this);
+            bool airplaneModeEnabled = IsAirplaneModeEnabled(this);
 
             await ToggleAirplaneMode(this, true);
-
             await ReplaceMACFile(this, BackupMACFile);
 
-            if (disableAirplaneMode)
+            if (!airplaneModeEnabled)
                 await ToggleAirplaneMode(this, false);
 
             DismissLoading();
@@ -75,9 +73,8 @@ namespace nMAC
         }
 
         private async void BtnChange_Click(object sender, EventArgs e)
-        { 
+        {
             string newMAC = GetMACFromViews();
-
             if (newMAC.Length != 12)
             {
                 ShowMessage(this, "Invalid MAC address entered!");
@@ -90,17 +87,17 @@ namespace nMAC
 
             Log("Changing MAC address...");
 
-            bool disableAirplaneMode = !IsAirplaneModeEnabled(this);
+            bool airplaneModeEnabled = IsAirplaneModeEnabled(this);
             await ToggleAirplaneMode(this, true);
 
             byte[] content = File.ReadAllBytes(LocalMACFile);
-
             WriteMAC(ref content, newMAC);
             File.WriteAllBytes(LocalMACFile, content);
-
             await ReplaceMACFile(this, LocalMACFile);
 
-            if (disableAirplaneMode)
+            SetHostname(newMAC);
+
+            if (!airplaneModeEnabled)
                 await ToggleAirplaneMode(this, false);
 
             DismissLoading();
@@ -109,8 +106,13 @@ namespace nMAC
             ToggleViews(true);
         }
 
+        private static void SetHostname(string hostname)
+        {
+            Shell.SU.Run($"setprop net.hostname {hostname}");
+        }
+
         private void BtnRandomize_Click(object sender, EventArgs e)
-        {    
+        {
             int MAC1 = _random.Next(0x111111, 0xffffff); // 6/12
             int MAC2 = _random.Next(0x111111, 0xffffff); // 12/12
             SetMACViews(MAC1.ToString("X") + MAC2.ToString("X"), true);
@@ -127,12 +129,11 @@ namespace nMAC
 
             for (int i = 0; i < layoutButtons.ChildCount; i++)
                 layoutButtons.GetChildAt(i).Enabled = state;
-        }    
+        }
 
         private void CheckBackup()
         {
             Log("Checking for backup file...");
-
             if (File.Exists(BackupMACFile))
             {
                 Log("Done");
@@ -167,10 +168,9 @@ To be able to revert anything you do here, a backup of your current MAC binary f
         private async void LoadMAC()
         {
             Log("Loading current MAC address...");
-
             await GetMACFile(this);
-            string MAC = ReadMAC(this);
 
+            string MAC = ReadMAC(this);
             if (MAC == null) // device not supported
             {
                 Log("Device not supported!");
@@ -187,7 +187,6 @@ To be able to revert anything you do here, a backup of your current MAC binary f
         private void SetMACViews(string MAC, bool excludeFirst = false)
         {
             string[] MACArray = new string[6];
-
             string @byte = string.Empty;
 
             for (int i = 0, u = 0; i < MAC.Length; i++)
@@ -206,7 +205,7 @@ To be able to revert anything you do here, a backup of your current MAC binary f
 
             for (int i = excludeFirst ? 3 : 0; i < layoutMAC.ChildCount; i++)
             {
-                EditText editMAC = (EditText)layoutMAC.GetChildAt(i);
+                EditText editMAC = (EditText) layoutMAC.GetChildAt(i);
                 editMAC.Text = MACArray[i];
                 editMAC.Hint = MACArray[i];
             }
@@ -230,4 +229,3 @@ To be able to revert anything you do here, a backup of your current MAC binary f
         }
     }
 }
-

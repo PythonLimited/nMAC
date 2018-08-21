@@ -8,9 +8,9 @@ using Android.Views.InputMethods;
 using EU.Chainfire.Libsuperuser;
 using Java.Lang;
 
-namespace nMAC
+namespace nMAC.Utils
 {
-    internal static class Helpers
+    internal static class General
     {
         internal static Logger Logger;
 
@@ -68,7 +68,6 @@ namespace nMAC
         internal static async Task<bool> CheckSUStrict(Context context)
         {
             bool isSU = false;
-
             await Task.Run(() => isSU = Shell.SU.Available());
 
             if (!isSU)
@@ -80,7 +79,7 @@ namespace nMAC
         internal static void ToggleKeyboard(Context context, bool state)
         {
             InputMethodManager inputManager = (InputMethodManager)
-                                  context.GetSystemService(Context.InputMethodService);
+                context.GetSystemService(Context.InputMethodService);
 
             inputManager.HideSoftInputFromWindow(((Activity) context).CurrentFocus?.WindowToken, HideSoftInputFlags.NotAlways);
         }
@@ -89,7 +88,8 @@ namespace nMAC
 
         internal static bool ShowLoading(Context context, string message)
         {
-            ((Activity) context).RunOnUiThread(() => {
+            ((Activity) context).RunOnUiThread(() =>
+            {
                 _progressDialog = new ProgressDialogFragment();
                 _progressDialog.Initialize(context, message, string.Empty);
                 _progressDialog.Show();
