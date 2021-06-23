@@ -4,14 +4,14 @@ namespace nMAC.Devices
 {
     class Nexus5 : DeviceModel
     {
-        internal Nexus5()
+        public Nexus5()
         {
             this.Path = "/persist/wifi/.macaddr";
         }
 
         internal override bool CheckFile(byte[] content)
         {
-            if(content.Length != 6)
+            if (content.Length != 6)
                 return false;
 
             return true;
@@ -19,7 +19,7 @@ namespace nMAC.Devices
 
         internal override string ExtractMACFromFile(byte[] content)
         {
-            return BitConverter.ToString(content).Replace("-", string.Empty);
+            return BitConverter.ToString(content).Replace("-", string.Empty); // BitConverter result separated by '-'
         }
 
         internal override void WriteMAC(ref byte[] content, string MAC)

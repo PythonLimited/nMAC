@@ -1,19 +1,23 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Android.Content;
 using EU.Chainfire.Libsuperuser;
 using nMAC.Devices;
 using Environment = Android.OS.Environment;
 
-namespace nMAC
+namespace nMAC.Utils
 {
-    internal static class MACFunctions
+    internal static class MAC
     {
         private const string UnsupportedDeviceMessage = @"Sorry, this device is not supported.
-Please follow the links on my GitHub project page if you want make it work!
+Please follow the resources on my GitHub project page if you wish to make it work!
 
 https://github.com/ViRb3/nMAC";
+
         internal static string MACFile;
         internal static string LocalMACFile;
         internal static string BackupMACFile;
@@ -23,36 +27,34 @@ https://github.com/ViRb3/nMAC";
         internal static async Task AssignPaths(Context context)
         {
             DeviceModel device = await DetectDevice();
-
             if (device == null)
             {
-                Helpers.ShowCriticalError(context, UnsupportedDeviceMessage);
+                nMAC.Utils.General.ShowCriticalError(context, UnsupportedDeviceMessage);
                 return;
             }
 
             Device = device;
             MACFile = device.Path;
             LocalMACFile = Path.Combine(context.FilesDir.AbsolutePath, "mac.bin");
-            BackupMACFile = Path.Combine(Environment.ExternalStorageDirectory.AbsolutePath, ".nMAC", "wlan_mac.bin");       
+            BackupMACFile = Path.Combine(Environment.ExternalStorageDirectory.AbsolutePath, ".nMAC", "wlan_mac.bin");
         }
 
         private static async Task<DeviceModel> DetectDevice()
         {
-            List<DeviceModel> devices = new List<DeviceModel>() // Priority, 1 is highest
-            {
-                new Nexus5(), // 100
-                new Nexus5X(), //100
-                new Samsung(), // 100
-                new YuYuphoria(), //100
-                new OnePlusOne() // 1000 - conflict - N5X
-            };
+            List<Type> deviceTypes = Assembly.GetExecutingAssembly().GetTypes()
+                .Where(t => t.Namespace == typeof(Nexus5X).Namespace).ToList();
+            List<DeviceModel> devices = new List<DeviceModel>();
+
+            foreach (Type deviceType in deviceTypes)
+                devices.Add((DeviceModel) Activator.CreateInstance(deviceType));
+
+            devices = devices.OrderByDescending(d => d.Priority).ToList(); // order matters
 
             IList<string> result = null;
 
             foreach (DeviceModel device in devices)
             {
                 string path = device.Path;
-
                 await Task.Run(() => result = Shell.SU.Run($"cat {path}"));
 
                 if (result == null || result.Count == 0 || string.IsNullOrWhiteSpace(result.ToString()))
@@ -80,7 +82,7 @@ https://github.com/ViRb3/nMAC";
 
             if (!Device.CheckFile(content))
             {
-                Helpers.ShowCriticalError(context, UnsupportedDeviceMessage);
+                nMAC.Utils.General.ShowCriticalError(context, UnsupportedDeviceMessage);
                 return null;
             }
 
